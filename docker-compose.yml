@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: airbus_db
+    restart: always
+    environment:
+      POSTGRES_USER: airbus_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fleet_efficiency
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+
+volumes:
+  pgdata:

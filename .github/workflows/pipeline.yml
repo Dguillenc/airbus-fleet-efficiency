@@ -1,0 +1,77 @@
+name: Fleet Efficiency Pipeline
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # todos los días a las 06:00 UTC
+  workflow_dispatch:      # permite lanzarlo manualmente desde GitHub
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: airbus_user
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: fleet_efficiency
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Crear esquema de base de datos (bronze, silver, gold)
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          psql -h localhost -U airbus_user -d fleet_efficiency -f sql/01_bronze.sql
+          psql -h localhost -U airbus_user -d fleet_efficiency -f sql/02_silver.sql
+          psql -h localhost -U airbus_user -d fleet_efficiency -f sql/03_gold.sql
+
+      - name: Descargar base de datos de aeronaves
+        run: |
+          mkdir -p data/reference
+          curl -L -f -o data/reference/aircraftDatabase.csv https://opensky-network.org/datasets/metadata/aircraftDatabase.csv
+          echo "--- Primeras líneas del CSV descargado ---"
+          head -n 3 data/reference/aircraftDatabase.csv
+
+      - name: Ejecutar pipeline (extract, bronze, silver, gold)
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          OPENSKY_USER: ${{ secrets.OPENSKY_USER }}
+          OPENSKY_PASS: ${{ secrets.OPENSKY_PASS }}
+        run: |
+          python src/load_bronze.py
+          python src/transform_silver.py
+          python src/transform_gold.py
+
+      - name: Exportar tabla gold a CSV
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          mkdir -p data/gold
+          psql -h localhost -U airbus_user -d fleet_efficiency -c "\copy gold.flight_efficiency TO 'data/gold/flight_efficiency.csv' WITH CSV HEADER"
+
+      - name: Commit y push del CSV actualizado
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/gold/flight_efficiency.csv
+          git diff --staged --quiet || git commit -m "Actualización automática de datos de vuelos"
+          git push
