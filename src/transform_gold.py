@@ -59,6 +59,17 @@ def build_gold():
     df["estimated_co2_kg_h"] = df["estimated_fuel_burn_kg_h"] * CO2_PER_KG_FUEL
 
     df = df.rename(columns={"baro_altitude": "altitude_m", "velocity": "velocity_ms"})
+        # Excluir registros con inconsistencia fabricante/modelo conocida
+    # en la base de datos comunitaria de OpenSky (ej. "Airbus" + modelo "737").
+    inconsistent_mask = (
+        ((df["manufacturer"] == "Airbus") & (df["model"].str.contains("737", na=False))) |
+        ((df["manufacturer"] == "Boeing") & (df["model"].str.contains("A3", na=False)))
+    )
+    inconsistent_count = inconsistent_mask.sum()
+    if inconsistent_count > 0:
+        print(f"Excluidas {inconsistent_count} filas por inconsistencia fabricante/modelo")
+    df = df[~inconsistent_mask]
+
     df = df.dropna(subset=["estimated_fuel_burn_kg_h"])
 
     final_cols = [
