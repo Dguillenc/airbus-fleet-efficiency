@@ -2,15 +2,15 @@ name: Fleet Efficiency Pipeline
 
 permissions:
   contents: write
-  
+
 concurrency:
   group: fleet-pipeline
   cancel-in-progress: false
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # todos los días a las 06:00 UTC
-  workflow_dispatch:      # permite lanzarlo manualmente desde GitHub
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
 jobs:
   run-pipeline:
@@ -79,6 +79,17 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Guardamos el CSV recién generado a un lado, sincronizamos con lo último
+          # de GitHub, y luego lo volvemos a traer. Así el push nunca choca.
+          cp data/gold/flight_efficiency.csv /tmp/flight_efficiency_new.csv
+
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          cp /tmp/flight_efficiency_new.csv data/gold/flight_efficiency.csv
+
           git add -f data/gold/flight_efficiency.csv
 
           if git diff --staged --quiet; then
@@ -87,9 +98,4 @@ jobs:
           fi
 
           git commit -m "Actualización automática de datos de vuelos"
-
-          for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push && break
-            echo "Intento $i fallido, reintentando en 5 segundos..."
-            sleep 5
-          done
+          git push origin main
