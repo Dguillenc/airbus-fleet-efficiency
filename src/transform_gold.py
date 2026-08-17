@@ -90,12 +90,27 @@ def build_gold():
 
     df["seat_capacity"] = df["model"].apply(match_seat_capacity)
 
-    # Velocidad viene en m/s desde OpenSky -> convertimos a km/h
+        # Velocidad viene en m/s desde OpenSky -> convertimos a km/h
     velocity_kmh = df["velocity"] * 3.6
 
-    # Evitamos división por velocidad 0 (aviones en tierra o parados)
-    df["co2_per_km"] = df["estimated_co2_kg_h"] / velocity_kmh.replace(0, pd.NA)
-    df["co2_per_seat_km"] = df["co2_per_km"] / df["seat_capacity"]
+    # Solo calculamos eficiencia de crucero para vuelos con velocidad realista
+    # (>= 200 km/h). Por debajo de eso, el avión está en tierra, rodando,
+    # despegando o aterrizando, y el ratio CO2/km deja de tener sentido físico.
+    MIN_CRUISE_SPEED_KMH = 200
+    valid_speed_mask = velocity_kmh >= MIN_CRUISE_SPEED_KMH
+
+    df["co2_per_km"] = None
+    df["co2_per_seat_km"] = None
+
+    df.loc[valid_speed_mask, "co2_per_km"] = (
+        df.loc[valid_speed_mask, "estimated_co2_kg_h"] / velocity_kmh[valid_speed_mask]
+    )
+    df.loc[valid_speed_mask, "co2_per_seat_km"] = (
+        df.loc[valid_speed_mask, "co2_per_km"] / df.loc[valid_speed_mask, "seat_capacity"]
+    )
+
+    excluded_by_speed = (~valid_speed_mask).sum()
+    print(f"Excluidos {excluded_by_speed} registros por velocidad no realista (<{MIN_CRUISE_SPEED_KMH} km/h)")
 
     df = df.rename(columns={"baro_altitude": "altitude_m", "velocity": "velocity_ms"})
 
