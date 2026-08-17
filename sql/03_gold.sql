@@ -11,6 +11,9 @@ CREATE TABLE gold.flight_efficiency (
     velocity_ms DOUBLE PRECISION,
     estimated_fuel_burn_kg_h DOUBLE PRECISION,
     estimated_co2_kg_h DOUBLE PRECISION,
+    co2_per_km DOUBLE PRECISION,
+    seat_capacity INTEGER,
+    co2_per_seat_km DOUBLE PRECISION,
     captured_at TIMESTAMP,
     loaded_at TIMESTAMP DEFAULT NOW()
 );

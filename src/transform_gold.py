@@ -33,7 +33,26 @@ FUEL_BURN_KG_H = {
     "787": 5500,    # (*)
 }
 
+# Capacidad aproximada de asientos en configuración típica de una clase.
+# Estimación basada en especificaciones públicas de Airbus/Boeing.
+SEAT_CAPACITY = {
+    "A320": 180,
+    "A319": 140,
+    "A321": 220,
+    "A320NEO": 180,
+    "A321NEO": 220,
+    "A330": 280,
+    "A350": 325,
+    "A380": 525,
+    "737": 189,
+    "737 MAX": 200,
+    "747": 410,
+    "777": 350,
+    "787": 290,
+}
+
 CO2_PER_KG_FUEL = 3.16  # kg de CO2 por kg de combustible quemado (ICAO/IATA)
+
 
 def match_fuel_burn(model):
     if pd.isna(model):
@@ -43,6 +62,17 @@ def match_fuel_burn(model):
         if key in model_upper:
             return value
     return None
+
+
+def match_seat_capacity(model):
+    if pd.isna(model):
+        return None
+    model_upper = str(model).upper()
+    for key, value in SEAT_CAPACITY.items():
+        if key in model_upper:
+            return value
+    return None
+
 
 def build_gold():
     conn = psycopg2.connect(**DB_PARAMS)
@@ -58,8 +88,18 @@ def build_gold():
     df["estimated_fuel_burn_kg_h"] = df["model"].apply(match_fuel_burn)
     df["estimated_co2_kg_h"] = df["estimated_fuel_burn_kg_h"] * CO2_PER_KG_FUEL
 
+    df["seat_capacity"] = df["model"].apply(match_seat_capacity)
+
+    # Velocidad viene en m/s desde OpenSky -> convertimos a km/h
+    velocity_kmh = df["velocity"] * 3.6
+
+    # Evitamos división por velocidad 0 (aviones en tierra o parados)
+    df["co2_per_km"] = df["estimated_co2_kg_h"] / velocity_kmh.replace(0, pd.NA)
+    df["co2_per_seat_km"] = df["co2_per_km"] / df["seat_capacity"]
+
     df = df.rename(columns={"baro_altitude": "altitude_m", "velocity": "velocity_ms"})
-        # Excluir registros con inconsistencia fabricante/modelo conocida
+
+    # Excluir registros con inconsistencia fabricante/modelo conocida
     # en la base de datos comunitaria de OpenSky (ej. "Airbus" + modelo "737").
     inconsistent_mask = (
         ((df["manufacturer"] == "Airbus") & (df["model"].str.contains("737", na=False))) |
@@ -75,14 +115,17 @@ def build_gold():
     final_cols = [
         "manufacturer", "model", "icao24", "callsign", "origin_country",
         "altitude_m", "velocity_ms", "estimated_fuel_burn_kg_h",
-        "estimated_co2_kg_h", "captured_at"
+        "estimated_co2_kg_h", "co2_per_km", "seat_capacity",
+        "co2_per_seat_km", "captured_at"
     ]
     return df[final_cols]
+
 
 def clean_value(v):
     if isinstance(v, float) and pd.isna(v):
         return None
     return v
+
 
 def load_to_gold(df):
     conn = psycopg2.connect(**DB_PARAMS)
@@ -92,8 +135,9 @@ def load_to_gold(df):
         INSERT INTO gold.flight_efficiency (
             manufacturer, model, icao24, callsign, origin_country,
             altitude_m, velocity_ms, estimated_fuel_burn_kg_h,
-            estimated_co2_kg_h, captured_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            estimated_co2_kg_h, co2_per_km, seat_capacity,
+            co2_per_seat_km, captured_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     rows = []
@@ -106,6 +150,7 @@ def load_to_gold(df):
     cur.close()
     conn.close()
     print(f"Insertadas {len(rows)} filas en gold.flight_efficiency")
+
 
 if __name__ == "__main__":
     df = build_gold()
