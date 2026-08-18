@@ -40,7 +40,16 @@ El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Bo
 
 El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions, sin intervención manual.
 ---
+## 🔍 Insights clave
 
+**¿Qué fabricante es más eficiente por pasajero?** Prácticamente empatados — Boeing (0,064 kg CO₂/asiento-km) es marginalmente más eficiente que Airbus (0,066), una diferencia de apenas un 3% en la muestra analizada. La narrativa de "un fabricante es claramente más limpio" no se sostiene con estos datos.
+
+**¿El avión más grande es el que más contamina por pasajero?** No necesariamente. El A380 y el 747 no encabezan el ranking de peor eficiencia pese a ser los aviones de mayor consumo total — al llevar muchos más asientos, reparten sus emisiones entre más gente. El A319, un avión mucho más pequeño, resultó menos eficiente por asiento-km en esta muestra.
+
+**¿Cuánto CO₂ emite un vuelo medio por pasajero?** En torno a 0,065 kg de CO₂ por asiento y kilómetro en fase de crucero — cifra que representa un escenario optimista (capacidad teórica, no ocupación real) frente a las cifras de la industria basadas en factor de ocupación y vuelo completo.
+
+> Estos insights se basan en 500-700 vuelos capturados en una única ejecución del pipeline. Al actualizarse a diario, la muestra crece con el tiempo, permitiendo un análisis cada vez más robusto.
+---
 ## 🏗️ Arquitectura
 
 ```mermaid
