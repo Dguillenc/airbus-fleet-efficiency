@@ -2,7 +2,7 @@
 
 # ✈️ Airbus vs Boeing — Fleet Efficiency & CO₂ Analytics
 
-**Pipeline de datos y dashboard de eficiencia real de flota Airbus vs Boeing, con datos reales de vuelos en vivo (OpenSky Network)**
+**Pipeline de datos y dashboard de eficiencia estimada en crucero de flota Airbus vs Boeing, con datos reales de vuelos actualizado a diario (OpenSky Network)**
 
 [![Pipeline Status](https://github.com/Dguillenc/airbus-fleet-efficiency/actions/workflows/pipeline.yml/badge.svg)](https://github.com/Dguillenc/airbus-fleet-efficiency/actions/workflows/pipeline.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
@@ -17,9 +17,9 @@
 
 ## 💡 Por qué este proyecto
 
-¿Qué avión contamina más, un A380 o un A320? La respuesta intuitiva ("el más grande") es incorrecta si lo que importa es **cuánto CO₂ emite por pasajero transportado**, no en total. Este proyecto nace de cuestionar esa métrica ingenua y construir la correcta: **CO₂ por asiento y kilómetro**, el mismo tipo de indicador que usa la industria aeroespacial para medir eficiencia real — no solo "cuánto consume", sino "cuánto consume por lo que transporta".
+¿Qué avión contamina más, un A380 o un A320? La respuesta intuitiva ("el más grande") es incorrecta si lo que importa es **cuánto CO₂ emite por pasajero transportado**, no en total. Este proyecto nace de cuestionar esa métrica ingenua y construir una más adecuada: **CO₂ estimado por asiento y kilómetro en fase de crucero**, el mismo tipo de indicador que usa la industria aeroespacial para medir la eficiencia estimada en crucero — no solo "cuánto consume", sino "cuánto consume por lo que transporta".
 
-Todo el pipeline corre sobre **datos reales en vivo** (no simulados) de tráfico aéreo europeo, se actualiza solo cada día, y el resultado se visualiza en un dashboard de Power BI diseñado para responder, de un vistazo, la pregunta que da título al proyecto.
+Todo el pipeline corre sobre **datos reales actualizado a diario** (no simulados) de tráfico aéreo europeo, se actualiza solo cada día, y el resultado se visualiza en un dashboard de Power BI diseñado para responder, de un vistazo, la pregunta que da título al proyecto.
 
 ---
 
@@ -34,9 +34,9 @@ Todo el pipeline corre sobre **datos reales en vivo** (no simulados) de tráfico
 Este proyecto implementa un **pipeline de datos end-to-end (ELT)** que captura posiciones de vuelo en tiempo real desde la **API de OpenSky Network**, las cruza con una base de referencia de aeronaves y calcula dos tipos de métricas por hora de vuelo, siguiendo una arquitectura de datos por capas (**Medallion: Bronze → Silver → Gold**):
 
 - **Consumo y emisiones totales** (kg de combustible/CO₂ por hora) — mide impacto absoluto.
-- **Eficiencia real** (kg de CO₂ por asiento y kilómetro) — mide impacto por unidad de transporte, la métrica que de verdad permite comparar de forma justa un A320 con un A380.
+- **Eficiencia estimada en crucero** (kg de CO₂ por asiento y kilómetro) — mide impacto por unidad de transporte, la métrica que de verdad permite comparar de forma justa un A320 con un A380.
 
-El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Boeing tanto en consumo total como en eficiencia real, desglosado por familia de avión (A320, A321, A330, A350, A380, 737, 747, 777, 787...) y con mapa geográfico del tráfico capturado.
+El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Boeing tanto en consumo total como en eficiencia estimada en crucero, desglosado por familia de avión (A320, A321, A330, A350, A380, 737, 747, 777, 787...) y con mapa geográfico del tráfico capturado.
 
 El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions, sin intervención manual.
 ---
@@ -48,7 +48,7 @@ El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions
 
 **¿Cuánto CO₂ emite un vuelo medio por pasajero?** En torno a 0,065 kg de CO₂ por asiento y kilómetro en fase de crucero — cifra que representa un escenario optimista (capacidad teórica, no ocupación real) frente a las cifras de la industria basadas en factor de ocupación y vuelo completo.
 
-> Estos insights se basan en 500-700 vuelos capturados en una única ejecución del pipeline. Al actualizarse a diario, la muestra crece con el tiempo, permitiendo un análisis cada vez más robusto.
+> > Estos insights se basan en observaciones de estado de aeronaves (posición, velocidad, altitud) capturadas en una única ejecución del pipeline vía la API de OpenSky — no vuelos completos de punta a punta, sino instantáneas del tráfico aéreo en el momento de la captura. El número de observaciones varía por ejecución (típicamente 500-1.200).
 ---
 ## 🏗️ Arquitectura
 
@@ -84,7 +84,7 @@ flowchart LR
 | **Transformación** | Python (`pandas`, `psycopg2`) |
 | **Orquestación** | GitHub Actions (cron diario + ejecución manual) |
 | **Infraestructura local** | Docker / Docker Compose |
-| **Visualización** | Power BI (medidas DAX, conexión en vivo vía URL) |
+| **Visualización** | Power BI (medidas DAX, conexión actualizado a diario vía URL) |
 | **Gestión de secretos** | `python-dotenv` + GitHub Secrets |
 
 ---
@@ -129,11 +129,11 @@ Inserta el payload crudo de cada vuelo en `bronze.raw_flights`, conservando el J
 - Filtra solo aeronaves Airbus/Boeing y descarta inconsistencias conocidas de la fuente (p. ej. registros donde el fabricante y el modelo declarados no coinciden, ~0,3% de los casos).
 - Aplica tablas de referencia de **consumo de combustible (kg/h)** y **capacidad de asientos** por familia de modelo, basadas en documentación pública de fabricantes.
 - Calcula `estimated_co2_kg_h = fuel_burn_kg_h × 3.16` (factor de conversión ICAO/IATA de kg CO₂ por kg de combustible quemado).
-- Calcula la **métrica de eficiencia real**: `co2_per_seat_km = (estimated_co2_kg_h / velocidad_km_h) / capacidad_asientos`, excluyendo vuelos por debajo de 200 km/h (fases de despegue/aterrizaje/rodaje, donde el ratio pierde sentido físico).
+- Calcula la **métrica de eficiencia estimada en crucero**: `co2_per_seat_km = (estimated_co2_kg_h / velocidad_km_h) / capacidad_asientos`, excluyendo vuelos por debajo de 200 km/h (fases de despegue/aterrizaje/rodaje, donde el ratio pierde sentido físico).
 - Publica el resultado final en `gold.flight_efficiency`.
 
 ### 5️⃣ Publicación
-El job de GitHub Actions exporta `gold.flight_efficiency` a CSV (`data/gold/flight_efficiency.csv`) y lo commitea automáticamente al repositorio, dejándolo listo para ser consumido por Power BI vía conexión en vivo a la URL raw de GitHub.
+El job de GitHub Actions exporta `gold.flight_efficiency` a CSV (`data/gold/flight_efficiency.csv`) y lo commitea automáticamente al repositorio, dejándolo listo para ser consumido por Power BI vía conexión actualizado a diario a la URL raw de GitHub.
 
 ---
 
@@ -202,11 +202,11 @@ El workflow [`pipeline.yml`](.github/workflows/pipeline.yml):
 
 ## 📈 Dashboard (Power BI)
 
-El dashboard conecta **en vivo** a la URL raw de `data/gold/flight_efficiency.csv` en GitHub, por lo que cada "Actualizar" trae los datos más recientes generados por el pipeline automático. Incluye:
+El dashboard conecta directamente a la URL raw de `data/gold/flight_efficiency.csv` en GitHub. Como el pipeline se ejecuta y publica automáticamente cada día, al pulsar "Actualizar" en Power BI se obtiene siempre el snapshot más reciente (no es un sistema de streaming en tiempo real, sino un proceso batch diario). Incluye:
 
-- **CO₂ por asiento-kilómetro** por familia de avión y por fabricante — la métrica de eficiencia real, el corazón analítico del proyecto.
+- **CO₂ por asiento-kilómetro** por familia de avión y por fabricante — la métrica de eficiencia estimada en crucero, el corazón analítico del proyecto.
 - **Consumo y emisiones totales (kg/h)** por fabricante y familia — para contraste con la eficiencia.
-- **KPIs agregados**: CO₂ por asiento-km medio, CO₂ medio, combustible medio y número de vuelos analizados.
+- **KPIs agregados**: CO₂ por asiento-km medio, CO₂ medio, combustible medio y número de observaciones analizadas.
 - **Mapa geográfico** con la densidad de tráfico aéreo detectado en el bounding box europeo.
 - **Filtro interactivo por fabricante** para aislar la flota Airbus o Boeing en todos los visuales a la vez.
 
