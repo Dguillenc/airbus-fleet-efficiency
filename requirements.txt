@@ -1,5 +1,5 @@
-requests
-pandas
-psycopg2-binary
-python-dotenv
-pytest
+requests==2.34.2
+pandas==3.0.5
+psycopg2-binary==2.9.12
+python-dotenv==1.2.3
+pytest==9.1.1
