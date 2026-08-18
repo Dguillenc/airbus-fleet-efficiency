@@ -25,7 +25,7 @@ Todo el pipeline corre sobre **datos reales en vivo** (no simulados) de tráfico
 
 ## 📊 Vista previa del dashboard
 
-![Dashboard completo](docs/images/dashboard-completo_1.png)
+![Dashboard completo](docs/images/dashboard-completo_1.PNG)
 
 ---
 
@@ -39,13 +39,28 @@ Este proyecto implementa un **pipeline de datos end-to-end (ELT)** que captura p
 El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Boeing tanto en consumo total como en eficiencia real, desglosado por familia de avión (A320, A321, A330, A350, A380, 737, 747, 777, 787...) y con mapa geográfico del tráfico capturado.
 
 El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions, sin intervención manual.
+---
 
-OpenSky API ──┐
-├──> Python ETL ──> PostgreSQL (Bronze → Silver → Gold) ──> Power BI
-Aircraft DB ──┘ │
-GitHub Actions
-(cron diario 06:00 UTC)
+## 🏗️ Arquitectura
 
+```mermaid
+flowchart LR
+    A[OpenSky API] --> C[Python ETL]
+    B[Aircraft Reference DB] --> C
+    C --> D[(PostgreSQL)]
+    D --> E[Bronze]
+    E --> F[Silver]
+    F --> G[Gold]
+    G --> H[Power BI Dashboard]
+
+    I[GitHub Actions<br/>cron diario 06:00 UTC] -.orquesta.-> C
+    I -.orquesta.-> D
+
+    style A fill:#1a3a5c,color:#fff
+    style B fill:#1a3a5c,color:#fff
+    style H fill:#F2C811,color:#000
+    style I fill:#2496ED,color:#fff
+```
 
 **Orquestación:** GitHub Actions ejecuta el pipeline completo cada día, levantando un contenedor efímero de PostgreSQL, aplicando el esquema SQL, corriendo el ETL en Python y publicando el CSV final de vuelta al repositorio — sin depender de ningún servicio de pago.
 
@@ -186,8 +201,8 @@ El dashboard conecta **en vivo** a la URL raw de `data/gold/flight_efficiency.cs
 - **Mapa geográfico** con la densidad de tráfico aéreo detectado en el bounding box europeo.
 - **Filtro interactivo por fabricante** para aislar la flota Airbus o Boeing en todos los visuales a la vez.
 
-![Dashboard 1](docs/images/dashboard-completo_2.png)
-![Dashboard 2](docs/images/dashboard-completo_3.png)
+![Dashboard 1](docs/images/dashboard-completo_2.PNG)
+![Dashboard 2](docs/images/dashboard-completo_3.PNG)
 ---
 
 ## ⚠️ Metodología y limitaciones
@@ -213,6 +228,3 @@ Técnico de mantenimiento electrónico/eléctrico (sistemas de defensa) en trans
 <div align="center">
 <sub>Fuente de datos: OpenSky Network API · Factor de emisiones ICAO/IATA (3,16 kg CO₂ por kg de combustible) · Actualización diaria automatizada vía GitHub Actions</sub>
 </div>
----
-
-## 🏗️ Arquitectura
