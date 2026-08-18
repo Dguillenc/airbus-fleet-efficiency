@@ -75,6 +75,10 @@ jobs:
           mkdir -p data/gold
           psql -h localhost -U airbus_user -d fleet_efficiency -c "\copy gold.flight_efficiency TO 'data/gold/flight_efficiency.csv' WITH CSV HEADER"
 
+      - name: Ejecutar tests de calidad de datos
+        run: pytest tests/ -v
+ 
+        
       - name: Commit y push del CSV actualizado
         run: |
           git config --global user.name "github-actions[bot]"
