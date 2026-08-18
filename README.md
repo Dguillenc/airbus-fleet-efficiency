@@ -40,7 +40,6 @@ El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Bo
 
 El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions, sin intervención manual.
 ---
-## 🔍 Insights clave
 
 ## 🔍 Insights clave
 
