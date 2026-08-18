@@ -216,6 +216,8 @@ El dashboard conecta directamente a la URL raw de `data/gold/flight_efficiency.c
 
 ## ⚠️ Metodología y limitaciones
 
+> 📄 Metodología detallada de cálculo, fuentes y limitaciones completas: [`docs/metodologia_co2.md`](docs/metodologia_co2.md)
+
 - Los datos de posición provienen de **ADS-B en tiempo real** vía OpenSky Network, por lo que la cobertura depende de la densidad de receptores terrestres (mayor en Europa y Norteamérica).
 - El **consumo de combustible y capacidad de asientos por modelo** se basan en cifras públicas de fabricantes y reportes operativos de referencia; los valores estimados por interpolación entre modelos similares se documentan explícitamente en el propio código (`src/transform_gold.py`).
 - La métrica `co2_per_seat_km` se calcula sobre **capacidad de asientos** (configuración típica), no sobre **ocupación real** de cada vuelo, y solo considera **fase de crucero** (velocidad ≥ 200 km/h). Por tanto, representa un escenario optimista frente a cifras de la industria basadas en factor de ocupación real y vuelo puerta a puerta completo (incluyendo despegue y aterrizaje).
