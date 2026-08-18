@@ -2,7 +2,7 @@
 
 # ✈️ Airbus vs Boeing — Fleet Efficiency & CO₂ Analytics
 
-**Pipeline de datos y dashboard de eficiencia/emisiones de flota Airbus vs Boeing, con datos reales de vuelos en vivo (OpenSky Network)**
+**Pipeline de datos y dashboard de eficiencia real de flota Airbus vs Boeing, con datos reales de vuelos en vivo (OpenSky Network)**
 
 [![Pipeline Status](https://github.com/Dguillenc/airbus-fleet-efficiency/actions/workflows/pipeline.yml/badge.svg)](https://github.com/Dguillenc/airbus-fleet-efficiency/actions/workflows/pipeline.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
@@ -15,27 +15,39 @@
 
 ---
 
+## 💡 Por qué este proyecto
+
+¿Qué avión contamina más, un A380 o un A320? La respuesta intuitiva ("el más grande") es incorrecta si lo que importa es **cuánto CO₂ emite por pasajero transportado**, no en total. Este proyecto nace de cuestionar esa métrica ingenua y construir la correcta: **CO₂ por asiento y kilómetro**, el mismo tipo de indicador que usa la industria aeroespacial para medir eficiencia real — no solo "cuánto consume", sino "cuánto consume por lo que transporta".
+
+Todo el pipeline corre sobre **datos reales en vivo** (no simulados) de tráfico aéreo europeo, se actualiza solo cada día, y el resultado se visualiza en un dashboard de Power BI diseñado para responder, de un vistazo, la pregunta que da título al proyecto.
+
+---
+
 ## 📊 Vista previa del dashboard
 
-> Emisiones estimadas de CO₂ por familia de avión y fabricante, actualizadas diariamente con datos reales de tráfico aéreo europeo.
-
+![Dashboard completo](docs/images/dashboard-completo_1.png)
 
 ---
 
 ## 🧭 Resumen del proyecto
 
-Este proyecto implementa un **pipeline de datos end-to-end (ELT)** que captura posiciones de vuelo en tiempo real desde la **API de OpenSky Network**, las cruza con una base de referencia de aeronaves y estima el **consumo de combustible y las emisiones de CO₂ por hora de vuelo**, siguiendo una arquitectura de datos por capas (**Medallion: Bronze → Silver → Gold**).
+Este proyecto implementa un **pipeline de datos end-to-end (ELT)** que captura posiciones de vuelo en tiempo real desde la **API de OpenSky Network**, las cruza con una base de referencia de aeronaves y calcula dos tipos de métricas por hora de vuelo, siguiendo una arquitectura de datos por capas (**Medallion: Bronze → Silver → Gold**):
 
-El resultado se consume en un **dashboard de Power BI** que compara la eficiencia de emisiones entre **Airbus** y **Boeing**, desglosado por familia de avión (A320, A350, A380, 737, 747, 777, 787...) y con mapa geográfico del tráfico capturado.
+- **Consumo y emisiones totales** (kg de combustible/CO₂ por hora) — mide impacto absoluto.
+- **Eficiencia real** (kg de CO₂ por asiento y kilómetro) — mide impacto por unidad de transporte, la métrica que de verdad permite comparar de forma justa un A320 con un A380.
+
+El resultado se consume en un **dashboard de Power BI** que compara Airbus vs Boeing tanto en consumo total como en eficiencia real, desglosado por familia de avión (A320, A321, A330, A350, A380, 737, 747, 777, 787...) y con mapa geográfico del tráfico capturado.
 
 El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions, sin intervención manual.
 
----
+OpenSky API ──┐
+├──> Python ETL ──> PostgreSQL (Bronze → Silver → Gold) ──> Power BI
+Aircraft DB ──┘ │
+GitHub Actions
+(cron diario 06:00 UTC)
 
-## 🏗️ Arquitectura
 
-<img width="1440" height="1240" alt="image" src="https://github.com/user-attachments/assets/92f05453-a8c2-4d68-aa59-be6028c2cd6c" />
-**Orquestación:** GitHub Actions ejecuta el pipeline completo cada día a las 06:00 UTC (`cron`), levantando un contenedor efímero de PostgreSQL, aplicando el esquema SQL, corriendo el ETL en Python y publicando el CSV final de vuelta al repositorio.
+**Orquestación:** GitHub Actions ejecuta el pipeline completo cada día, levantando un contenedor efímero de PostgreSQL, aplicando el esquema SQL, corriendo el ETL en Python y publicando el CSV final de vuelta al repositorio — sin depender de ningún servicio de pago.
 
 ---
 
@@ -48,7 +60,7 @@ El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions
 | **Transformación** | Python (`pandas`, `psycopg2`) |
 | **Orquestación** | GitHub Actions (cron diario + ejecución manual) |
 | **Infraestructura local** | Docker / Docker Compose |
-| **Visualización** | Power BI |
+| **Visualización** | Power BI (medidas DAX, conexión en vivo vía URL) |
 | **Gestión de secretos** | `python-dotenv` + GitHub Secrets |
 
 ---
@@ -66,7 +78,9 @@ El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions
 | `src/extract.py` | Llamada a la API de OpenSky |
 | `src/load_bronze.py` | Ingesta cruda → Bronze |
 | `src/transform_silver.py` | Limpieza + cruce con referencia → Silver |
-| `src/transform_gold.py` | Cálculo de consumo/CO₂ → Gold |
+| `src/transform_gold.py` | Cálculo de consumo/CO₂/eficiencia → Gold |
+| `powerbi/dashboard.pbix` | Dashboard de Power BI |
+| `docs/images/` | Capturas y diagrama de arquitectura |
 | `docker-compose.yml` | PostgreSQL local para desarrollo |
 | `requirements.txt` | Dependencias de Python |
 | `.env` | Credenciales (no versionado) |
@@ -88,13 +102,14 @@ Inserta el payload crudo de cada vuelo en `bronze.raw_flights`, conservando el J
 - Normaliza timestamps a `captured_at`.
 
 ### 4️⃣ Gold (`transform_gold.py`)
-- Filtra solo aeronaves Airbus/Boeing.
-- Aplica una tabla de **consumo de combustible por hora (kg/h) por familia de modelo**, basada en documentación pública de fabricantes y reportes operativos.
+- Filtra solo aeronaves Airbus/Boeing y descarta inconsistencias conocidas de la fuente (p. ej. registros donde el fabricante y el modelo declarados no coinciden, ~0,3% de los casos).
+- Aplica tablas de referencia de **consumo de combustible (kg/h)** y **capacidad de asientos** por familia de modelo, basadas en documentación pública de fabricantes.
 - Calcula `estimated_co2_kg_h = fuel_burn_kg_h × 3.16` (factor de conversión ICAO/IATA de kg CO₂ por kg de combustible quemado).
+- Calcula la **métrica de eficiencia real**: `co2_per_seat_km = (estimated_co2_kg_h / velocidad_km_h) / capacidad_asientos`, excluyendo vuelos por debajo de 200 km/h (fases de despegue/aterrizaje/rodaje, donde el ratio pierde sentido físico).
 - Publica el resultado final en `gold.flight_efficiency`.
 
 ### 5️⃣ Publicación
-El job de GitHub Actions exporta `gold.flight_efficiency` a CSV (`data/gold/flight_efficiency.csv`) y lo commitea automáticamente al repositorio, dejándolo listo para ser consumido por Power BI vía conexión a archivo o refresco programado.
+El job de GitHub Actions exporta `gold.flight_efficiency` a CSV (`data/gold/flight_efficiency.csv`) y lo commitea automáticamente al repositorio, dejándolo listo para ser consumido por Power BI vía conexión en vivo a la URL raw de GitHub.
 
 ---
 
@@ -140,14 +155,16 @@ python src/transform_gold.py
 
 ## 🔄 Automatización (GitHub Actions)
 
+![GitHub Actions ejecutándose](docs/images/github-actions.png)
+
 El workflow [`pipeline.yml`](.github/workflows/pipeline.yml):
 
 - Se ejecuta **automáticamente cada día a las 06:00 UTC** y también de forma manual (`workflow_dispatch`).
-- Levanta un servicio de PostgreSQL efímero como parte del job.
+- Levanta un servicio de PostgreSQL efímero como parte del job (sin necesidad de una base de datos en la nube de pago).
 - Aplica el esquema SQL (`bronze` → `silver` → `gold`).
 - Descarga la última versión del `aircraftDatabase.csv` de OpenSky.
 - Ejecuta el ETL completo (`extract → bronze → silver → gold`).
-- Exporta la tabla Gold a CSV y hace commit/push automático del resultado.
+- Exporta la tabla Gold a CSV y hace commit/push automático del resultado, con reintentos ante condiciones de carrera si dos ejecuciones coinciden.
 
 **Secrets requeridos en el repositorio de GitHub:**
 
@@ -161,39 +178,33 @@ El workflow [`pipeline.yml`](.github/workflows/pipeline.yml):
 
 ## 📈 Dashboard (Power BI)
 
-El dashboard conecta contra `data/gold/flight_efficiency.csv` y muestra:
+El dashboard conecta **en vivo** a la URL raw de `data/gold/flight_efficiency.csv` en GitHub, por lo que cada "Actualizar" trae los datos más recientes generados por el pipeline automático. Incluye:
 
-- **Emisiones de CO₂ estimadas (kg/h) por familia de avión**, comparando Airbus vs Boeing.
-- **KPIs agregados**: CO₂ promedio, consumo de combustible promedio y número de aeronaves únicas (`icao24`) capturadas.
+- **CO₂ por asiento-kilómetro** por familia de avión y por fabricante — la métrica de eficiencia real, el corazón analítico del proyecto.
+- **Consumo y emisiones totales (kg/h)** por fabricante y familia — para contraste con la eficiencia.
+- **KPIs agregados**: CO₂ por asiento-km medio, CO₂ medio, combustible medio y número de vuelos analizados.
 - **Mapa geográfico** con la densidad de tráfico aéreo detectado en el bounding box europeo.
-- **Filtro por fabricante** para aislar la flota Airbus o Boeing.
+- **Filtro interactivo por fabricante** para aislar la flota Airbus o Boeing en todos los visuales a la vez.
 
-> El CSV se actualiza a diario de forma automática, por lo que basta con configurar un refresco programado en Power BI (o reimportar el archivo) para mantener el dashboard al día.
-
+![Dashboard 1](docs/images/dashboard-completo_2.png)
+![Dashboard 2](docs/images/dashboard-completo_3.png)
 ---
 
 ## ⚠️ Metodología y limitaciones
 
 - Los datos de posición provienen de **ADS-B en tiempo real** vía OpenSky Network, por lo que la cobertura depende de la densidad de receptores terrestres (mayor en Europa y Norteamérica).
-- El **consumo de combustible por modelo** se basa en cifras públicas de fabricantes y reportes operativos de referencia; los valores marcados como estimados por interpolación entre modelos similares se documentan explícitamente en el propio código (`src/transform_gold.py`).
+- El **consumo de combustible y capacidad de asientos por modelo** se basan en cifras públicas de fabricantes y reportes operativos de referencia; los valores estimados por interpolación entre modelos similares se documentan explícitamente en el propio código (`src/transform_gold.py`).
+- La métrica `co2_per_seat_km` se calcula sobre **capacidad de asientos** (configuración típica), no sobre **ocupación real** de cada vuelo, y solo considera **fase de crucero** (velocidad ≥ 200 km/h). Por tanto, representa un escenario optimista frente a cifras de la industria basadas en factor de ocupación real y vuelo puerta a puerta completo (incluyendo despegue y aterrizaje).
 - El factor de **3,16 kg CO₂ por kg de combustible** corresponde al estándar de conversión utilizado por ICAO/IATA para combustible de aviación (Jet A-1).
+- Se detectaron y excluyeron inconsistencias puntuales en la base de datos comunitaria de OpenSky (fabricante y modelo declarados no coincidentes en ~0,3% de los registros).
 - Este proyecto tiene fines **analíticos y de portfolio**; no sustituye cálculos oficiales de emisiones certificadas (p. ej. metodología ICAO CO₂ Certification).
-
----
-
-## 🗺️ Próximos pasos
-
-- [ ] Incorporar el dataset oficial de certificación de emisiones **ICAO CO₂** como validación cruzada de las estimaciones.
-- [ ] Migrar transformaciones Silver/Gold a **dbt** para tests de calidad de datos y linaje documentado.
-- [ ] Ampliar el bounding box a cobertura global por fases.
-- [ ] Añadir capa de particionado histórico para análisis de tendencias temporales.
 
 ---
 
 ## 👤 Autor
 
 **Daniel Guillén**
-Técnico de mantenimiento electrónico/eléctrico (sistemas de defensa, Indra) en transición hacia Data Engineering & Analytics Engineering.
+Técnico de mantenimiento electrónico/eléctrico (sistemas de defensa) en transición hacia Data Engineering & Analytics Engineering.
 
 [GitHub](https://github.com/Dguillenc) · [LinkedIn](https://linkedin.com/in/danielgc97)
 
@@ -202,3 +213,6 @@ Técnico de mantenimiento electrónico/eléctrico (sistemas de defensa, Indra) e
 <div align="center">
 <sub>Fuente de datos: OpenSky Network API · Factor de emisiones ICAO/IATA (3,16 kg CO₂ por kg de combustible) · Actualización diaria automatizada vía GitHub Actions</sub>
 </div>
+---
+
+## 🏗️ Arquitectura
