@@ -170,7 +170,7 @@ python src/transform_gold.py
 
 ## 🔄 Automatización (GitHub Actions)
 
-![GitHub Actions ejecutándose](docs/images/github-actions.png)
+![GitHub Actions ejecutándose](docs/images/github-actions.PNG)
 
 El workflow [`pipeline.yml`](.github/workflows/pipeline.yml):
 
