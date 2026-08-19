@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -20,6 +21,10 @@ BBOX = {
 
 # Segundos antes de expirar en los que refrescamos el token de forma proactiva.
 TOKEN_REFRESH_MARGIN = 30
+
+# Configuración de reintentos ante 429 (Too Many Requests) o errores de red.
+MAX_RETRIES = 3
+BASE_BACKOFF_SECONDS = 5
 
 
 class TokenManager:
@@ -63,6 +68,9 @@ tokens = TokenManager()
 
 
 def fetch_states():
+    """Consulta el endpoint /states/all con reintentos automáticos ante
+    respuestas 429 (rate limit) o errores transitorios de red, usando
+    backoff exponencial (5s, 10s, 20s) antes de rendirse."""
     url = "https://opensky-network.org/api/states/all"
     params = {
         "lamin": BBOX["lamin"],
@@ -70,14 +78,37 @@ def fetch_states():
         "lamax": BBOX["lamax"],
         "lomax": BBOX["lomax"],
     }
-    response = requests.get(
-        url,
-        params=params,
-        headers=tokens.headers(),
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()
+
+    last_exception = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                headers=tokens.headers(),
+                timeout=30,
+            )
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("X-Rate-Limit-Retry-After-Seconds")
+                wait_seconds = int(retry_after) if retry_after else BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                print(f"[Intento {attempt}/{MAX_RETRIES}] 429 Too Many Requests. Esperando {wait_seconds}s...")
+                time.sleep(wait_seconds)
+                continue
+
+            response.raise_for_status()
+            return response.json()
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_exception = e
+            wait_seconds = BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(f"[Intento {attempt}/{MAX_RETRIES}] Error de red: {e}. Reintentando en {wait_seconds}s...")
+            time.sleep(wait_seconds)
+
+    raise RuntimeError(
+        f"No se pudo obtener datos de OpenSky tras {MAX_RETRIES} intentos."
+    ) from last_exception
 
 
 if __name__ == "__main__":
