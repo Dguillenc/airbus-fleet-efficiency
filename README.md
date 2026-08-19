@@ -143,7 +143,7 @@ El job de GitHub Actions exporta `gold.flight_efficiency` a CSV (`data/gold/flig
 ### Requisitos previos
 - Python 3.12+
 - Docker y Docker Compose
-- Cuenta gratuita en [OpenSky Network](https://opensky-network.org/) (usuario/contraseña de la API)
+- Cuenta gratuita en [OpenSky Network](https://opensky-network.org/) con un cliente API OAuth2 creado (`client_id` + `client_secret`, desde la sección "Account" de tu perfil)
 
 ### Pasos
 
@@ -161,8 +161,8 @@ pip install -r requirements.txt
 # 3. Configurar variables de entorno
 # Crear un archivo .env en la raíz con:
 #   DB_PASSWORD=tu_password
-#   OPENSKY_USER=tu_usuario
-#   OPENSKY_PASS=tu_password_opensky
+#   OPENSKY_CLIENT_ID=tu_client_id
+#   OPENSKY_CLIENT_SECRET=tu_client_secret
 
 # 4. Levantar PostgreSQL con el esquema Bronze/Silver/Gold ya inicializado
 docker compose up -d
