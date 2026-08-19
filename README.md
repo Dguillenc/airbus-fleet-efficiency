@@ -43,13 +43,13 @@ El pipeline se ejecuta de forma **automática y diaria** mediante GitHub Actions
 
 ## 🔍 Insights clave
 
-**¿Qué fabricante tiene menor intensidad de emisión estimada por asiento-km?** En la muestra analizada, Boeing (0,064 kg CO₂/asiento-km) aparece ligeramente por debajo de Airbus (0,066) — una diferencia de apenas un 3%. Esta cifra debe leerse con cautela: la media por fabricante está influida por qué familias de avión aparecen en la muestra y en qué proporción (sesgo de composición de flota). No se puede afirmar que un fabricante sea "objetivamente más eficiente" sin comparar familias equivalentes (p. ej. A320 vs 737, A330/A350 vs 787) o ponderar cada familia por igual en vez de cada observación individual.
+**¿Qué fabricante tiene menor intensidad de emisión estimada por asiento-km?** En la muestra analizada, Boeing (0,066 kg CO₂/asiento-km) aparece por debajo de Airbus (0,069) — una diferencia de aproximadamente un 4%. Esta cifra debe leerse con cautela: la media por fabricante está influida por qué familias de avión aparecen en la muestra y en qué proporción (sesgo de composición de flota). No se puede afirmar que un fabricante sea "objetivamente más eficiente" sin comparar familias equivalentes (p. ej. A320 vs 737, A330/A350 vs 787) o ponderar cada familia por igual en vez de cada observación individual.
 
-**¿El avión más grande es el que más emite por pasajero?** No necesariamente — este es, en mi opinión, el insight más sólido del proyecto. El A380 y el 747, pese a tener el mayor consumo total, no encabezan el ranking de peor eficiencia estimada por asiento-km: al llevar muchos más asientos, reparten sus emisiones entre más gente. En esta muestra, el A319 (un avión bastante más pequeño) presenta una eficiencia estimada inferior a varios modelos de mayor capacidad — probablemente por una combinación de menor capacidad de asientos, menor volumen de observaciones en la muestra y la velocidad instantánea capturada en cada caso, no por un único factor aislado.
+**¿El avión más grande es el que más emite por pasajero?** Depende del modelo, no del tamaño en sí. El 747 y el 777 encabezan actualmente el ranking de mayor intensidad estimada por asiento-km (0,1065 y 0,0877 respectivamente), pese a no ser los aviones de mayor capacidad de la muestra — mientras que el A380, con capacidad muy superior, presenta una eficiencia notablemente mejor (0,0854). En el otro extremo, el A321 (0,0547) resulta el modelo más eficiente de toda la muestra. Esto refuerza que el tamaño por sí solo no predice la eficiencia por asiento: importa la combinación de consumo del modelo y su capacidad real.
 
-**¿Cuánto CO₂ se estima por pasajero-km en fase de crucero?** En torno a 0,065 kg CO₂ por asiento-km en la muestra analizada. Esta cifra representa una **intensidad de emisión estimada en crucero**, no el consumo real de un vuelo — se calcula sobre capacidad teórica de asientos (no ocupación real) y excluye las fases de despegue y aterrizaje, típicamente más intensivas en combustible por kilómetro recorrido.
+**¿Cuánto CO₂ se estima por asiento-km en fase de crucero?** En torno a 0,0676 kg CO₂ por asiento-km en la muestra analizada (1.219 observaciones). Esta cifra representa una **intensidad de emisión estimada en crucero**, no el consumo real de un vuelo — se calcula sobre capacidad teórica de asientos (no ocupación real) y excluye las fases de despegue y aterrizaje, típicamente más intensivas en combustible por kilómetro recorrido.
 
-> Estos insights se basan en observaciones de estado de aeronaves (no vuelos completos) capturadas en una única ejecución del pipeline vía la API de OpenSky. Ver [`docs/metodologia_co2.md`](docs/metodologia_co2.md) para el detalle completo de cálculo, fuentes y limitaciones metodológicas.
+> Estos insights se basan en observaciones de estado de aeronaves (no vuelos completos) capturadas en una única ejecución del pipeline vía la API de OpenSky. Los valores se recalculan en cada ejecución diaria y pueden variar según el tráfico capturado en ese momento. Ver [`docs/metodologia_co2.md`](docs/metodologia_co2.md) para el detalle completo de cálculo, fuentes y limitaciones metodológicas.
 ---
 ## 🏗️ Arquitectura
 
@@ -196,8 +196,8 @@ El workflow [`pipeline.yml`](.github/workflows/pipeline.yml):
 | Secret | Descripción |
 |---|---|
 | `DB_PASSWORD` | Contraseña de PostgreSQL |
-| `OPENSKY_USER` | Usuario de la API de OpenSky |
-| `OPENSKY_PASS` | Contraseña de la API de OpenSky |
+| `OPENSKY_CLIENT_ID` | Client ID del cliente API OAuth2 de OpenSky |
+| `OPENSKY_CLIENT_SECRET` | Client Secret del cliente API OAuth2 de OpenSky |
 
 ---
 
