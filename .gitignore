@@ -3,3 +3,6 @@ venv/
 data/*
 !data/gold/
 !data/gold/**
+__pycache__/
+*.pyc
+.pytest_cache/
