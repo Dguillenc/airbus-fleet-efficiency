@@ -62,15 +62,15 @@ flowchart LR
     E --> F[Silver]
     F --> G[Gold]
     G --> H[Power BI Dashboard]
-
-    I[GitHub Actions<br/>cron diario 06:00 UTC] -.orquesta.-> C
-    I -.orquesta.-> D
+    I[GitHub Actions - cron diario 06:00 UTC] --> C
+    I --> D
 
     style A fill:#1a3a5c,color:#fff
     style B fill:#1a3a5c,color:#fff
     style H fill:#F2C811,color:#000
     style I fill:#2496ED,color:#fff
 ```
+
 
 **Orquestación:** GitHub Actions ejecuta el pipeline completo cada día, levantando un contenedor efímero de PostgreSQL, aplicando el esquema SQL, corriendo el ETL en Python y publicando el CSV final de vuelta al repositorio — sin depender de ningún servicio de pago.
 
