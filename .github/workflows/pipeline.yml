@@ -61,8 +61,8 @@ jobs:
       - name: Ejecutar pipeline (extract, bronze, silver, gold)
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          OPENSKY_USER: ${{ secrets.OPENSKY_USER }}
-          OPENSKY_PASS: ${{ secrets.OPENSKY_PASS }}
+          OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+          OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
         run: |
           python src/load_bronze.py
           python src/transform_silver.py
