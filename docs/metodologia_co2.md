@@ -91,3 +91,7 @@ Se detectó que, en un pequeño porcentaje de registros (~0,3%), el fabricante y
 - Emisiones de un vuelo completo (incluye solo fase de crucero, no despegue/aterrizaje).
 - Eficiencia ajustada por ocupación real de pasajeros.
 - Una conclusión estadísticamente robusta sobre qué fabricante es "mejor", dado el sesgo de composición de flota.
+
+## 8. Cobertura del cruce con la base de aeronaves
+
+En una ejecución representativa, aproximadamente el **56% de las observaciones capturadas** no encuentran coincidencia en la base de datos de referencia de aeronaves (`icao24` desconocido). Esto es esperable dado que la base de OpenSky es comunitaria y no exhaustiva, y una parte significativa del tráfico capturado corresponde a aviación privada, militar u otras aeronaves fuera del alcance de este análisis (comercial Airbus/Boeing). Este dato se calcula e imprime automáticamente en cada ejecución del pipeline (`src/transform_silver.py`), permitiendo auditar la cobertura real de cada corrida.
