@@ -15,6 +15,7 @@ DB_PARAMS = {
 
 AIRCRAFT_DB_PATH = "data/reference/aircraftDatabase.csv"
 
+
 def load_aircraft_reference():
     df = pd.read_csv(
         AIRCRAFT_DB_PATH,
@@ -23,6 +24,7 @@ def load_aircraft_reference():
     )
     df["icao24"] = df["icao24"].str.strip().str.lower()
     return df
+
 
 def classify_manufacturer(name):
     if pd.isna(name):
@@ -33,6 +35,7 @@ def classify_manufacturer(name):
     if "boeing" in name:
         return "Boeing"
     return "Other"
+
 
 def fetch_bronze_data():
     conn = psycopg2.connect(**DB_PARAMS)
@@ -45,6 +48,29 @@ def fetch_bronze_data():
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
+
+def print_data_quality_report(merged_df, total_rows):
+    """Imprime un resumen de calidad del cruce con la base de referencia
+    de aeronaves, para poder auditar cuánta información se perdió o
+    quedó incompleta en cada ejecución del pipeline."""
+    no_match = merged_df["manufacturername"].isna().sum()
+    no_manufacturer_classified = merged_df["manufacturer"].isna().sum()
+    no_model = merged_df["model"].isna().sum()
+    duplicated_icao24 = merged_df["icao24"].duplicated().sum()
+
+    pct_no_match = (no_match / total_rows * 100) if total_rows else 0
+    pct_no_manufacturer = (no_manufacturer_classified / total_rows * 100) if total_rows else 0
+    pct_no_model = (no_model / total_rows * 100) if total_rows else 0
+
+    print("--- Informe de calidad de datos (cruce con referencia de aeronaves) ---")
+    print(f"Total de observaciones procesadas: {total_rows}")
+    print(f"Sin match en la base de aeronaves (icao24 desconocido): {no_match} ({pct_no_match:.1f}%)")
+    print(f"Sin fabricante clasificado: {no_manufacturer_classified} ({pct_no_manufacturer:.1f}%)")
+    print(f"Sin modelo identificado: {no_model} ({pct_no_model:.1f}%)")
+    print(f"icao24 duplicados en la muestra: {duplicated_icao24}")
+    print("-------------------------------------------------------------------")
+
 
 def transform():
     print("Cargando referencia de aeronaves...")
@@ -61,6 +87,8 @@ def transform():
     merged["is_boeing"] = merged["manufacturer"] == "Boeing"
     merged["captured_at"] = pd.to_datetime(merged["time_position"], unit="s")
 
+    print_data_quality_report(merged, total_rows=len(flights))
+
     final_cols = [
         "icao24", "callsign", "origin_country", "longitude", "latitude",
         "baro_altitude", "velocity", "manufacturer", "model",
@@ -71,13 +99,12 @@ def transform():
     print(f"Filas a insertar: {len(final_df)}")
     return final_df
 
+
 def clean_value(v):
-    # Convierte cualquier NaN (float) a None real de Python.
     if isinstance(v, float) and pd.isna(v):
         return None
-    if pd.isna(v) if not isinstance(v, (list, tuple)) else False:
-        return None
     return v
+
 
 def load_to_silver(df):
     conn = psycopg2.connect(**DB_PARAMS)
@@ -101,6 +128,7 @@ def load_to_silver(df):
     cur.close()
     conn.close()
     print(f"Insertadas {len(rows)} filas en silver.clean_flights")
+
 
 if __name__ == "__main__":
     df = transform()
