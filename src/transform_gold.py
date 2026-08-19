@@ -57,20 +57,29 @@ CO2_PER_KG_FUEL = 3.16  # kg de CO2 por kg de combustible quemado (ICAO/IATA)
 def match_fuel_burn(model):
     if pd.isna(model):
         return None
-    model_upper = str(model).upper()
-    for key, value in FUEL_BURN_KG_H.items():
-        if key in model_upper:
-            return value
+    # Normalizamos quitando guiones para que "A320-NEO" coincida con la
+    # clave "A320NEO" (sin guion). Sin esto, el guion rompe la coincidencia
+    # de substring y el modelo cae erróneamente en la clave genérica "A320".
+    model_upper = str(model).upper().replace("-", "")
+    # Ordenamos las claves de más larga a más corta para que variantes
+    # específicas (ej. "A320NEO", "737 MAX") se comprueben antes que
+    # su prefijo genérico (ej. "A320", "737"), evitando falsos positivos
+    # por coincidencia de substring (bug detectado y corregido).
+    sorted_keys = sorted(FUEL_BURN_KG_H.keys(), key=len, reverse=True)
+    for key in sorted_keys:
+        if key.replace("-", "") in model_upper:
+            return FUEL_BURN_KG_H[key]
     return None
 
 
 def match_seat_capacity(model):
     if pd.isna(model):
         return None
-    model_upper = str(model).upper()
-    for key, value in SEAT_CAPACITY.items():
-        if key in model_upper:
-            return value
+    model_upper = str(model).upper().replace("-", "")
+    sorted_keys = sorted(SEAT_CAPACITY.keys(), key=len, reverse=True)
+    for key in sorted_keys:
+        if key.replace("-", "") in model_upper:
+            return SEAT_CAPACITY[key]
     return None
 
 
@@ -90,7 +99,7 @@ def build_gold():
 
     df["seat_capacity"] = df["model"].apply(match_seat_capacity)
 
-        # Velocidad viene en m/s desde OpenSky -> convertimos a km/h
+    # Velocidad viene en m/s desde OpenSky -> convertimos a km/h
     velocity_kmh = df["velocity"] * 3.6
 
     # Solo calculamos eficiencia de crucero para vuelos con velocidad realista

@@ -1,5 +1,12 @@
+import os
+import sys
+
 import pandas as pd
 import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from transform_gold import match_fuel_burn, match_seat_capacity
 
 CSV_PATH = "data/gold/flight_efficiency.csv"
 
@@ -74,3 +81,28 @@ def test_altitude_within_realistic_range(gold_df):
     valid_altitude = gold_df["altitude_m"].dropna()
     assert (valid_altitude >= -100).all()
     assert (valid_altitude <= 15000).all()
+
+
+def test_a320neo_not_matched_as_a320():
+    """Regresión: A320neo debe recibir su propio consumo (2100), no el
+    del A320 genérico (2500), pese a que 'A320' es substring de 'A320NEO'."""
+    assert match_fuel_burn("A320-NEO") == 2100
+    assert match_fuel_burn("AIRBUS A320NEO") == 2100
+
+
+def test_737_max_not_matched_as_737():
+    """Regresión: 737 MAX debe recibir su propio consumo (2100), no el
+    del 737 genérico (2400)."""
+    assert match_fuel_burn("737 MAX 8") == 2100
+    assert match_fuel_burn("BOEING 737 MAX") == 2100
+
+
+def test_generic_a320_still_matches():
+    """Un A320 sin sufijo NEO debe seguir recibiendo el valor genérico."""
+    assert match_fuel_burn("A320-214") == 2500
+
+
+def test_seat_capacity_respects_variant_priority():
+    """Mismo problema de substring, aplicado a capacidad de asientos."""
+    assert match_seat_capacity("A321-NEO") == 220
+    assert match_seat_capacity("737 MAX 8") == 200
