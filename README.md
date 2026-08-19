@@ -31,7 +31,7 @@ Todo el pipeline corre sobre **datos reales actualizado a diario** (no simulados
 
 ## 🧭 Resumen del proyecto
 
-Este proyecto implementa un **pipeline de datos end-to-end (ELT)** que captura posiciones de vuelo en tiempo real desde la **API de OpenSky Network**, las cruza con una base de referencia de aeronaves y calcula dos tipos de métricas por hora de vuelo, siguiendo una arquitectura de datos por capas (**Medallion: Bronze → Silver → Gold**):
+Este proyecto implementa un pipeline de datos end-to-end (ELT) tipo batch que captura una instantánea diaria (snapshot) del tráfico aéreo en vivo desde la API de **OpenSky Network**, las cruza con una base de referencia de aeronaves y calcula dos tipos de métricas por hora de vuelo, siguiendo una arquitectura de datos por capas (**Medallion: Bronze → Silver → Gold**):
 
 - **Consumo y emisiones totales** (kg de combustible/CO₂ por hora) — mide impacto absoluto.
 - **Eficiencia estimada en crucero** (kg de CO₂ por asiento y kilómetro) — mide impacto por unidad de transporte, la métrica que de verdad permite comparar de forma justa un A320 con un A380.
